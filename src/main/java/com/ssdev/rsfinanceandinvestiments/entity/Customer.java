@@ -22,7 +22,6 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "customers")
-@Builder
 public class Customer {
     
     @Id

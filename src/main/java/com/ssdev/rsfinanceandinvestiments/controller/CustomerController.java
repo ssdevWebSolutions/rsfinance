@@ -76,13 +76,7 @@ public class CustomerController {
         }
     }
     
-//    @GetMapping("/customers/recent-payers")
-//    public ResponseEntity<List<EMISchedule>> getRecentPayers() {
-//        Pageable top20 = PageRequest.of(0, 20);
-//        System.out.print("hello");
-//        List<EMISchedule> recentSchedules = emiScheduleRepository.findTop20PaidWithCustomer(top20);
-//        return ResponseEntity.ok(recentSchedules);
-//    }
+
 
     
     
