@@ -186,6 +186,25 @@ public class EMISchedule {
 	super();
 	// TODO Auto-generated constructor stub
  }
+
+ public EMISchedule(Long id, String customerPhone, Integer monthNumber, String monthName, BigDecimal emiAmount,
+		LocalDate dueDate, PaymentStatus status, LocalDate paidDate, BigDecimal paidAmount, BigDecimal pendingAmount,
+		BigDecimal cumulativePending, LocalDateTime createdAt, LocalDateTime updatedAt) {
+	super();
+	this.id = id;
+	this.customerPhone = customerPhone;
+	this.monthNumber = monthNumber;
+	this.monthName = monthName;
+	this.emiAmount = emiAmount;
+	this.dueDate = dueDate;
+	this.status = status;
+	this.paidDate = paidDate;
+	this.paidAmount = paidAmount;
+	this.pendingAmount = pendingAmount;
+	this.cumulativePending = cumulativePending;
+	this.createdAt = createdAt;
+	this.updatedAt = updatedAt;
+ }
  
  
 
