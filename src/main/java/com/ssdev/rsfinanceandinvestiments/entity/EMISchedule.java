@@ -181,6 +181,11 @@ public class EMISchedule {
  public void setUpdatedAt(LocalDateTime updatedAt) {
 	this.updatedAt = updatedAt;
  }
+
+ public EMISchedule() {
+	super();
+	// TODO Auto-generated constructor stub
+ }
  
  
 
