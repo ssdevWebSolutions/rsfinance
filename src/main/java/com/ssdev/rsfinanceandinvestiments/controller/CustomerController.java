@@ -56,25 +56,28 @@ public class CustomerController {
 	 private static final Logger log = LoggerFactory.getLogger(EMIScheduleService.class);
 
     
-    @PostMapping("/customers")
-    public ResponseEntity<String> createCustomer(@RequestBody Customer request) {
-        try {
-            log.info("🔥 Creating customer: {}", request.getName());
-            
-            // 1. Save customer
-            Customer customer = customerService.createCustomer(request);
-            
-            // 2. Generate EMI schedule with cumulative calculations
-            emiScheduleService.generateEMIScheduleForCustomer(customer);
-            
-            log.info("✅ Customer created successfully: {}", customer.getPhoneNumber());
-            return ResponseEntity.ok("inserted Successfully");
-            
-        } catch (Exception e) {
-            log.error("❌ Error creating customer: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body("Error creating customer: " + e.getMessage());
-        }
-    }
+	 @PostMapping("/customers")
+	 public ResponseEntity<String> createCustomer(@RequestBody Customer request) {
+	     try {
+	         log.info("🔥 Creating customer: {}", request.getName());
+
+	         // 1. Save customer
+	         Customer customer = customerService.createCustomer(request);
+
+	         // 2. Trigger async EMI generation
+	         emiScheduleService.generateEMIScheduleForCustomer(customer);
+
+	         log.info("✅ Customer created successfully, EMI schedule generation started in background: {}", customer.getPhoneNumber());
+	         
+	         // ✅ Immediate response to client
+	         return ResponseEntity.ok("inserted Successfully");
+
+	     } catch (Exception e) {
+	         log.error("❌ Error creating customer: {}", e.getMessage(), e);
+	         return ResponseEntity.status(500).body("Error creating customer: " + e.getMessage());
+	     }
+	 }
+
     
 
 
