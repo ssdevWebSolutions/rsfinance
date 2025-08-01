@@ -47,6 +47,26 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
 	       "GROUP BY e.customerPhone " +
 	       "HAVING COUNT(e) >= 3")
 	List<String> findWaitlistCustomers(@Param("olderThanDate") LocalDate olderThanDate);
+ 
+ @Query("""
+	        select e.customerPhone
+	        from EmiSchedule e
+	        where e.status <> 'PAID'
+	        group by e.customerPhone
+	        having min(e.dueDate) <= :cutoff
+	    """)
+	    List<String> findWaitlistCustomersForMonths(@Param("cutoff") LocalDate cutoff);
+ 
+ @Query("""
+		    select e.customerPhone
+		    from EmiSchedule e
+		    where e.status <> 'PAID'
+		      and e.dueDate <= :today
+		    group by e.customerPhone
+		    having count(e.id) >= 3
+		""")
+		List<String> findWaitlistCustomersForMonth(@Param("today") LocalDate today);
+
 
 
 }

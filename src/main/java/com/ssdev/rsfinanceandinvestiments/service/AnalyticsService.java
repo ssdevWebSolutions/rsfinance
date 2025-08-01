@@ -11,10 +11,15 @@ import org.springframework.stereotype.Service;
 
 import com.ssdev.rsfinanceandinvestiments.Enums.MonthCategory;
 import com.ssdev.rsfinanceandinvestiments.dto.MonthlyAnalyticsResponse;
+import com.ssdev.rsfinanceandinvestiments.dto.RecentPayerResponse;
 import com.ssdev.rsfinanceandinvestiments.entity.EMISchedule;
 import com.ssdev.rsfinanceandinvestiments.entity.PaymentStatus;
 import com.ssdev.rsfinanceandinvestiments.repository.CustomerRepository;
 import com.ssdev.rsfinanceandinvestiments.repository.EMIScheduleRepository;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.ssdev.rsfinanceandinvestiments.entity.Customer;
 
 @Service
 public class AnalyticsService {
@@ -24,7 +29,11 @@ public class AnalyticsService {
 
     @Autowired
     private CustomerRepository customerRepository;
+    
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsService.class);
 
+
+//    Dashborad api - To get all responses 
     public MonthlyAnalyticsResponse getMonthlyAnalytics(MonthCategory monthCategory, int year) {
         List<EMISchedule> filteredSchedules;
 
@@ -128,4 +137,144 @@ public class AnalyticsService {
 
         return response;
     }
+    
+    
+   
+        /**
+         * Centralized method to filter EMI schedules by MonthCategory
+         */
+        private List<EMISchedule> getFilteredSchedules(MonthCategory monthCategory, int year) {
+            List<EMISchedule> filteredSchedules;
+            int monthNumber = monthCategory.ordinal() - 2;
+            log.info("Filtering schedules for {} year={} monthNumber={}", monthCategory, year, monthNumber);
+
+            switch (monthCategory) {
+                case LAST_3_MONTHS:
+                    filteredSchedules = emiScheduleRepository.findInLastNMonths(LocalDate.now().minusMonths(3));
+                    break;
+                case LAST_6_MONTHS:
+                    filteredSchedules = emiScheduleRepository.findInLastNMonths(LocalDate.now().minusMonths(6));
+                    break;
+                default:
+                    filteredSchedules = emiScheduleRepository.findByMonthAndYear(monthNumber, year);
+                    break;
+            }
+
+            log.debug("Total EMI schedules found: {}", filteredSchedules.size());
+            return filteredSchedules;
+        }
+
+        /**
+         * Build RecentPayerResponse from phone
+         */
+        private RecentPayerResponse buildResponse(String phone, List<EMISchedule> allSchedules) {
+            RecentPayerResponse dto = new RecentPayerResponse();
+            Customer customer = customerRepository.findByPhoneNumber(phone).orElse(null);
+
+            dto.setCustomer(customer);
+            dto.setEmiSchedules(
+                    allSchedules.stream()
+                            .filter(s -> s.getCustomerPhone().equals(phone))
+                            .toList()
+            );
+
+            return dto;
+        }
+
+        // 1️⃣ All customers
+        public List<RecentPayerResponse> getAllCustomers(MonthCategory monthCategory, int year) {
+            long startTime = System.currentTimeMillis();
+            log.info("Fetching ALL customers for {} year={}", monthCategory, year);
+
+            List<EMISchedule> schedules = getFilteredSchedules(monthCategory, year);
+            List<RecentPayerResponse> response = schedules.stream()
+                    .map(EMISchedule::getCustomerPhone)
+                    .distinct()
+                    .map(phone -> buildResponse(phone, schedules))
+                    .toList();
+
+            log.info("Total customers found: {}", response.size());
+            log.debug("Execution time: {} ms", (System.currentTimeMillis() - startTime));
+            return response;
+        }
+
+        // 2️⃣ Paid customers
+        public List<RecentPayerResponse> getPaidCustomers(MonthCategory monthCategory, int year) {
+            long startTime = System.currentTimeMillis();
+            log.info("Fetching PAID customers for {} year={}", monthCategory, year);
+
+            List<EMISchedule> schedules = getFilteredSchedules(monthCategory, year);
+            List<RecentPayerResponse> response = schedules.stream()
+                    .filter(s -> s.getStatus() == PaymentStatus.PAID)
+                    .map(EMISchedule::getCustomerPhone)
+                    .distinct()
+                    .map(phone -> {
+                        RecentPayerResponse dto = new RecentPayerResponse();
+                        dto.setCustomer(customerRepository.findByPhoneNumber(phone).orElse(null));
+                        dto.setEmiSchedules(schedules.stream()
+                                .filter(s -> s.getCustomerPhone().equals(phone) && s.getStatus() == PaymentStatus.PAID)
+                                .toList());
+                        return dto;
+                    })
+                    .toList();
+
+            log.info("Total paid customers: {}", response.size());
+            log.debug("Execution time: {} ms", (System.currentTimeMillis() - startTime));
+            return response;
+        }
+
+        // 3️⃣ Pending customers
+        public List<RecentPayerResponse> getPendingCustomers(MonthCategory monthCategory, int year) {
+            long startTime = System.currentTimeMillis();
+            log.info("Fetching PENDING customers for {} year={}", monthCategory, year);
+
+            List<EMISchedule> schedules = getFilteredSchedules(monthCategory, year);
+            List<RecentPayerResponse> response = schedules.stream()
+                    .filter(s -> s.getStatus() != PaymentStatus.PAID)
+                    .map(EMISchedule::getCustomerPhone)
+                    .distinct()
+                    .map(phone -> {
+                        RecentPayerResponse dto = new RecentPayerResponse();
+                        dto.setCustomer(customerRepository.findByPhoneNumber(phone).orElse(null));
+                        dto.setEmiSchedules(schedules.stream()
+                                .filter(s -> s.getCustomerPhone().equals(phone) && s.getStatus() != PaymentStatus.PAID)
+                                .toList());
+                        return dto;
+                    })
+                    .toList();
+
+            log.info("Total pending customers: {}", response.size());
+            log.debug("Execution time: {} ms", (System.currentTimeMillis() - startTime));
+            return response;
+        }
+
+        // 4️⃣ Waitlist customers (>=3 months pending from today)
+        public List<RecentPayerResponse> getWaitlistCustomers() {
+            long startTime = System.currentTimeMillis();
+            LocalDate cutoff = LocalDate.now().minusMonths(3);
+            log.info("Fetching WAITLIST customers pending before {}", cutoff);
+
+            List<String> waitlistPhones = emiScheduleRepository.findWaitlistCustomers(cutoff);
+            log.debug("Waitlist phones: {}", waitlistPhones);
+
+            List<RecentPayerResponse> response = waitlistPhones.stream()
+                    .map(phone -> {
+                        RecentPayerResponse dto = new RecentPayerResponse();
+                        dto.setCustomer(customerRepository.findByPhoneNumber(phone).orElse(null));
+                        dto.setEmiSchedules(
+                                emiScheduleRepository.findByCustomerPhoneOrderByMonth(phone)
+                        );
+                        return dto;
+                    })
+                    .toList();
+
+            log.info("Total waitlist customers: {}", response.size());
+            log.debug("Execution time: {} ms", (System.currentTimeMillis() - startTime));
+            return response;
+        }
+    
+
+    
+    
+    
 }
