@@ -50,7 +50,7 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
  
  @Query("""
 	        select e.customerPhone
-	        from EmiSchedule e
+	        from EMISchedule e
 	        where e.status <> 'PAID'
 	        group by e.customerPhone
 	        having min(e.dueDate) <= :cutoff
@@ -59,7 +59,7 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
  
  @Query("""
 		    select e.customerPhone
-		    from EmiSchedule e
+		    from EMISchedule e
 		    where e.status <> 'PAID'
 		      and e.dueDate <= :today
 		    group by e.customerPhone
