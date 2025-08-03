@@ -36,11 +36,13 @@ public class AnalyticsController {
             @RequestParam("monthCategory") MonthCategory monthCategory,
             @RequestParam("year") int year) {
         try {
-        	System.out.print("hello");
+        	System.out.print("hello ->>>>>"+monthCategory);
             MonthlyAnalyticsResponse response = analyticsService.getMonthlyAnalytics(monthCategory, year);
+//            System.out.println("hello"+response);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
+        	System.out.print(e);
+            return ResponseEntity.status(502).body(null);
         }
     }
     private static final Logger log = LoggerFactory.getLogger(AnalyticsService.class);

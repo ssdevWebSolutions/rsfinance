@@ -27,8 +27,28 @@ public class MonthlyAnalyticsResponse {
     private String pendingDirection;
     private String waitlistDirection;
     private String collectionDirection;
+    
+    private BigDecimal totalPaidAmount;
+    private BigDecimal totalUnpaidAmount;
 
-    public String getCustomerGrowthDirection() {
+
+    public BigDecimal getTotalPaidAmount() {
+		return totalPaidAmount;
+	}
+
+	public void setTotalPaidAmount(BigDecimal totalPaidAmount) {
+		this.totalPaidAmount = totalPaidAmount;
+	}
+
+	public BigDecimal getTotalUnpaidAmount() {
+		return totalUnpaidAmount;
+	}
+
+	public void setTotalUnpaidAmount(BigDecimal totalUnpaidAmount) {
+		this.totalUnpaidAmount = totalUnpaidAmount;
+	}
+
+	public String getCustomerGrowthDirection() {
 		return customerGrowthDirection;
 	}
 
