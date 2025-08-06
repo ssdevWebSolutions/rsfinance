@@ -12,6 +12,9 @@ import com.ssdev.rsfinanceandinvestiments.entity.Customer;
 public interface CustomerRepository extends JpaRepository<Customer,Long> {
 	
 	Optional<Customer> findByPhoneNumber(String phoneNumber);
+	
+	void deleteByPhoneNumber(String phoneNumber);
+
 
 
 }

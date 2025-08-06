@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.ssdev.rsfinanceandinvestiments.dto.CustomerUpdateRequest;
 import com.ssdev.rsfinanceandinvestiments.dto.EMIScheduleResponse;
 import com.ssdev.rsfinanceandinvestiments.dto.RecentPayerResponse;
 import com.ssdev.rsfinanceandinvestiments.dto.UpdateStatusRequest;
@@ -77,6 +78,58 @@ public class CustomerController {
 	         return ResponseEntity.status(500).body("Error creating customer: " + e.getMessage());
 	     }
 	 }
+	 
+	// 🔥 NEW: UPDATE CUSTOMER
+	    @PutMapping("/customers/{phoneNumber}")
+	    public ResponseEntity<String> updateCustomer(
+	            @PathVariable String phoneNumber, 
+	            @RequestBody @Valid CustomerUpdateRequest request) {
+	        try {
+	            log.info("🔥 Updating customer with phone number: {}", phoneNumber);
+	            
+	            // Check if customer exists
+	            Optional<Customer> existingCustomer = customerRepository.findByPhoneNumber(phoneNumber);
+	            if (existingCustomer.isEmpty()) {
+	                log.warn("❌ Customer not found with phone number: {}", phoneNumber);
+	                return ResponseEntity.status(404).body("Customer not found");
+	            }
+
+	            // Update customer
+	            Customer updatedCustomer = customerService.updateCustomer(phoneNumber, request);
+	            
+	            log.info("✅ Customer updated successfully: {}", updatedCustomer.getName());
+	            return ResponseEntity.ok("Customer updated successfully");
+
+	        } catch (Exception e) {
+	            log.error("❌ Error updating customer: {}", e.getMessage(), e);
+	            return ResponseEntity.status(500).body("Error updating customer: " + e.getMessage());
+	        }
+	    }
+
+	    // 🔥 NEW: DELETE CUSTOMER
+	    @DeleteMapping("/customers/{phoneNumber}")
+	    public ResponseEntity<String> deleteCustomer(@PathVariable String phoneNumber) {
+	        try {
+	            log.info("🔥 Deleting customer with phone number: {}", phoneNumber);
+	            
+	            // Check if customer exists
+	            Optional<Customer> existingCustomer = customerRepository.findByPhoneNumber(phoneNumber);
+	            if (existingCustomer.isEmpty()) {
+	                log.warn("❌ Customer not found with phone number: {}", phoneNumber);
+	                return ResponseEntity.status(404).body("Customer not found");
+	            }
+
+	            // Delete customer (this will cascade delete EMI schedules if configured)
+	            customerService.deleteCustomer(phoneNumber);
+	            
+	            log.info("✅ Customer deleted successfully: {}", phoneNumber);
+	            return ResponseEntity.ok("Customer deleted successfully");
+
+	        } catch (Exception e) {
+	            log.error("❌ Error deleting customer: {}", e.getMessage(), e);
+	            return ResponseEntity.status(500).body("Error deleting customer: " + e.getMessage());
+	        }
+	    }
 
     
 

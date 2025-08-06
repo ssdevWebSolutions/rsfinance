@@ -67,6 +67,8 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
 		""")
 		List<String> findWaitlistCustomersForMonth(@Param("today") LocalDate today);
 
+ 		void deleteByCustomerPhone(String phoneNumber);
+
 
 
 }
