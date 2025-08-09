@@ -1,5 +1,6 @@
 package com.ssdev.rsfinanceandinvestiments.service;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import com.ssdev.rsfinanceandinvestiments.dto.CustomerRequest;
 import com.ssdev.rsfinanceandinvestiments.dto.CustomerResponse;
 import com.ssdev.rsfinanceandinvestiments.dto.CustomerUpdateRequest;
+import com.ssdev.rsfinanceandinvestiments.dto.DashboardStatsDTO;
 import com.ssdev.rsfinanceandinvestiments.entity.Customer;
 import com.ssdev.rsfinanceandinvestiments.repository.CustomerRepository;
 import com.ssdev.rsfinanceandinvestiments.repository.EMIScheduleRepository;
@@ -50,6 +52,11 @@ public class CustomerService {
 public Customer updateCustomer(String phoneNumber, CustomerUpdateRequest request) {
     try {
         log.info("🔥 Updating customer with phone number: {}", phoneNumber);
+        
+        log.info("🔥 checking object ", request.getMonthlyEmi());
+        
+        System.out.println("hello"+" "+request.getMonthlyEmi());
+
 
         // 1. Fetch the existing customer
         Customer existingCustomer = customerRepository.findByPhoneNumber(phoneNumber)
@@ -197,6 +204,16 @@ public Customer updateCustomer(String phoneNumber, CustomerUpdateRequest request
             log.error("❌ Error calculating total amount: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to calculate total amount: " + e.getMessage());
         }
+    }
+    
+    
+
+    public DashboardStatsDTO getDashboardStats() {
+        long totalCustomers = customerRepository.count();
+        BigDecimal totalPaid = emiScheduleRepository.getTotalPaid();
+        BigDecimal totalPending = emiScheduleRepository.getTotalPending();
+
+        return new DashboardStatsDTO(totalCustomers, totalPaid, totalPending);
     }
 
 }

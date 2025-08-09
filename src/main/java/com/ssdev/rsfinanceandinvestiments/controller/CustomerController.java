@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.ssdev.rsfinanceandinvestiments.dto.CustomerUpdateRequest;
+import com.ssdev.rsfinanceandinvestiments.dto.DashboardStatsDTO;
 import com.ssdev.rsfinanceandinvestiments.dto.EMIScheduleResponse;
 import com.ssdev.rsfinanceandinvestiments.dto.RecentPayerResponse;
 import com.ssdev.rsfinanceandinvestiments.dto.UpdateStatusRequest;
@@ -131,7 +132,11 @@ public class CustomerController {
 	        }
 	    }
 
-    
+
+	    @GetMapping("/dashboard")
+	    public DashboardStatsDTO getDashboardStats() {
+	        return customerService.getDashboardStats();
+	    }
 
 
     
@@ -221,6 +226,8 @@ public class CustomerController {
             return ResponseEntity.status(500).body("Error updating status: " + e.getMessage());
         }
     }
+    
+    
     
     
     

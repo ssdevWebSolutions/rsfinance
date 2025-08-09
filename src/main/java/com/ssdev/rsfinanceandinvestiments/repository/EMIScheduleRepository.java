@@ -68,6 +68,13 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
 		List<String> findWaitlistCustomersForMonth(@Param("today") LocalDate today);
 
  		void deleteByCustomerPhone(String phoneNumber);
+ 		
+ 		
+ 		@Query("SELECT COALESCE(SUM(e.paidAmount), 0) FROM EMISchedule e")
+ 	    BigDecimal getTotalPaid();
+
+ 	    @Query("SELECT COALESCE(SUM(e.pendingAmount), 0) FROM EMISchedule e")
+ 	    BigDecimal getTotalPending();
 
 
 
