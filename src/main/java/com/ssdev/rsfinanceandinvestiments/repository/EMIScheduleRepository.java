@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.ssdev.rsfinanceandinvestiments.entity.EMISchedule;
+import com.ssdev.rsfinanceandinvestiments.entity.PaymentStatus;
 
 //EMIScheduleRepository.java
 @Repository
@@ -76,6 +77,10 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
  	    @Query("SELECT COALESCE(SUM(e.pendingAmount), 0) FROM EMISchedule e")
  	    BigDecimal getTotalPending();
 
+
+ 	// In EMIScheduleRepository.java
+ 	   @Query("SELECT e FROM EMISchedule e WHERE e.status != :status")
+ 	   List<EMISchedule> findByStatusNot(@Param("status") PaymentStatus status);
 
 
 }
