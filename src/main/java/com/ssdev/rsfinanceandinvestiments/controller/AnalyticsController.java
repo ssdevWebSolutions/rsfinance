@@ -78,31 +78,7 @@ public class AnalyticsController {
         return analyticsService.getPendingCustomers(monthCategory, year);
     }
 
-    // 4️⃣ Waitlist customers (no month/year filter needed)
-//    @GetMapping("/waitlist")
-//    public List<RecentPayerResponse> getWaitlistCustomers() {
-//        log.info("API GET /waitlist called");
-//        return analyticsService.getWaitlistCustomers();
-//    }
-    
-//    @GetMapping("/waitlist")
-//    public List<RecentPayerResponse> getWaitlistCustomers() {
-//        LocalDate cutoff = LocalDate.now().minusMonths(3);
-//        log.info("Fetching WAITLIST customers pending since {}", cutoff);
-//
-//        List<String> waitlistPhones = emiScheduleRepository.findWaitlistCustomers(cutoff);
-//
-//        return waitlistPhones.stream()
-//                .map(phone -> {
-//                    RecentPayerResponse dto = new RecentPayerResponse();
-//                    dto.setCustomer(customerRepository.findByPhoneNumber(phone).orElse(null));
-//                    dto.setEmiSchedules(
-//                            emiScheduleRepository.findByCustomerPhoneOrderByMonth(phone)
-//                    );
-//                    return dto;
-//                })
-//                .toList();
-//    }
+
     
     @GetMapping("/waitlist")
     public List<RecentPayerResponse> getWaitlistCustomers() {

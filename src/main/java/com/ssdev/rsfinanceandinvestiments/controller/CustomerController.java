@@ -1,6 +1,5 @@
 package com.ssdev.rsfinanceandinvestiments.controller;
 
-
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,197 +40,170 @@ import java.util.stream.Collectors;
 @Slf4j
 @CrossOrigin(origins = "*")
 public class CustomerController {
-    
+
 	@Autowired
-    private  CustomerService customerService;
-    
+	private CustomerService customerService;
+
 	@Autowired
-    private EMIScheduleService emiScheduleService;
-	
-	
+	private EMIScheduleService emiScheduleService;
+
 	@Autowired
 	private EMIScheduleRepository emiScheduleRepository;
-	
+
 	@Autowired
 	private CustomerRepository customerRepository;
-	
-	 private static final Logger log = LoggerFactory.getLogger(EMIScheduleService.class);
 
-    
-	 @PostMapping("/customers")
-	 public ResponseEntity<String> createCustomer(@RequestBody Customer request) {
-	     try {
-	         log.info("🔥 Creating customer: {}", request.getName());
+	private static final Logger log = LoggerFactory.getLogger(EMIScheduleService.class);
 
-	         // 1. Save customer
-	         Customer customer = customerService.createCustomer(request);
+	@PostMapping("/customers")
+	public ResponseEntity<String> createCustomer(@RequestBody Customer request) {
+		try {
+			log.info("🔥 Creating customer: {}", request.getName());
 
-	         // 2. Trigger async EMI generation
-	         emiScheduleService.generateEMIScheduleForCustomer(customer);
+			// 1. Save customer
+			Customer customer = customerService.createCustomer(request);
 
-	         log.info("✅ Customer created successfully, EMI schedule generation started in background: {}", customer.getPhoneNumber());
-	         
-	         // ✅ Immediate response to client
-	         return ResponseEntity.ok("inserted Successfully");
+			// 2. Trigger async EMI generation
+			emiScheduleService.generateEMIScheduleForCustomer(customer);
 
-	     } catch (Exception e) {
-	         log.error("❌ Error creating customer: {}", e.getMessage(), e);
-	         return ResponseEntity.status(500).body("Error creating customer: " + e.getMessage());
-	     }
-	 }
-	 
+			log.info("✅ Customer created successfully, EMI schedule generation started in background: {}",
+					customer.getPhoneNumber());
+
+			// ✅ Immediate response to client
+			return ResponseEntity.ok("inserted Successfully");
+
+		} catch (Exception e) {
+			log.error("❌ Error creating customer: {}", e.getMessage(), e);
+			return ResponseEntity.status(500).body("Error creating customer: " + e.getMessage());
+		}
+	}
+
 	// 🔥 NEW: UPDATE CUSTOMER
-	    @PutMapping("/customers/{phoneNumber}")
-	    public ResponseEntity<String> updateCustomer(
-	            @PathVariable String phoneNumber, 
-	            @RequestBody @Valid CustomerUpdateRequest request) {
-	        try {
-	            log.info("🔥 Updating customer with phone number: {}", phoneNumber);
-	            
-	            // Check if customer exists
-	            Optional<Customer> existingCustomer = customerRepository.findByPhoneNumber(phoneNumber);
-	            if (existingCustomer.isEmpty()) {
-	                log.warn("❌ Customer not found with phone number: {}", phoneNumber);
-	                return ResponseEntity.status(404).body("Customer not found");
-	            }
+	@PutMapping("/customers/{phoneNumber}")
+	public ResponseEntity<String> updateCustomer(@PathVariable String phoneNumber,
+			@RequestBody @Valid CustomerUpdateRequest request) {
+		try {
+			log.info("🔥 Updating customer with phone number: {}", phoneNumber);
 
-	            // Update customer
-	            Customer updatedCustomer = customerService.updateCustomer(phoneNumber, request);
-	            
-	            log.info("✅ Customer updated successfully: {}", updatedCustomer.getName());
-	            return ResponseEntity.ok("Customer updated successfully");
+			// Check if customer exists
+			Optional<Customer> existingCustomer = customerRepository.findByPhoneNumber(phoneNumber);
+			if (existingCustomer.isEmpty()) {
+				log.warn("❌ Customer not found with phone number: {}", phoneNumber);
+				return ResponseEntity.status(404).body("Customer not found");
+			}
 
-	        } catch (Exception e) {
-	            log.error("❌ Error updating customer: {}", e.getMessage(), e);
-	            return ResponseEntity.status(500).body("Error updating customer: " + e.getMessage());
-	        }
-	    }
+			// Update customer
+			Customer updatedCustomer = customerService.updateCustomer(phoneNumber, request);
 
-	    // 🔥 NEW: DELETE CUSTOMER
-	    @DeleteMapping("/customers/{phoneNumber}")
-	    public ResponseEntity<String> deleteCustomer(@PathVariable String phoneNumber) {
-	        try {
-	            log.info("🔥 Deleting customer with phone number: {}", phoneNumber);
-	            
-	            // Check if customer exists
-	            Optional<Customer> existingCustomer = customerRepository.findByPhoneNumber(phoneNumber);
-	            if (existingCustomer.isEmpty()) {
-	                log.warn("❌ Customer not found with phone number: {}", phoneNumber);
-	                return ResponseEntity.status(404).body("Customer not found");
-	            }
+			log.info("✅ Customer updated successfully: {}", updatedCustomer.getName());
+			return ResponseEntity.ok("Customer updated successfully");
 
-	            // Delete customer (this will cascade delete EMI schedules if configured)
-	            customerService.deleteCustomer(phoneNumber);
-	            
-	            log.info("✅ Customer deleted successfully: {}", phoneNumber);
-	            return ResponseEntity.ok("Customer deleted successfully");
+		} catch (Exception e) {
+			log.error("❌ Error updating customer: {}", e.getMessage(), e);
+			return ResponseEntity.status(500).body("Error updating customer: " + e.getMessage());
+		}
+	}
 
-	        } catch (Exception e) {
-	            log.error("❌ Error deleting customer: {}", e.getMessage(), e);
-	            return ResponseEntity.status(500).body("Error deleting customer: " + e.getMessage());
-	        }
-	    }
+	// 🔥 NEW: DELETE CUSTOMER
+	@DeleteMapping("/customers/{phoneNumber}")
+	public ResponseEntity<String> deleteCustomer(@PathVariable String phoneNumber) {
+		try {
+			log.info("🔥 Deleting customer with phone number: {}", phoneNumber);
 
+			// Check if customer exists
+			Optional<Customer> existingCustomer = customerRepository.findByPhoneNumber(phoneNumber);
+			if (existingCustomer.isEmpty()) {
+				log.warn("❌ Customer not found with phone number: {}", phoneNumber);
+				return ResponseEntity.status(404).body("Customer not found");
+			}
 
-	    @GetMapping("/dashboard")
-	    public DashboardStatsDTO getDashboardStats() {
-	        return customerService.getDashboardStats();
-	    }
+			// Delete customer (this will cascade delete EMI schedules if configured)
+			customerService.deleteCustomer(phoneNumber);
 
+			log.info("✅ Customer deleted successfully: {}", phoneNumber);
+			return ResponseEntity.ok("Customer deleted successfully");
 
-    
-    
-    
-    
-    
-    @GetMapping("/customers")
-    public ResponseEntity<List<Customer>> findAllCustomers() {
-        try {
-            List<Customer> customer = customerService.findAll();  
-            return new ResponseEntity<>(customer, HttpStatus.CREATED);
-        } catch (Exception ex) { 
-            throw ex; // Let GlobalExceptionHandler handle it
-        }
-    }
-    
-    
-   @GetMapping("/customers/recent-payers")
-   public ResponseEntity<List<RecentPayerResponse>> getRecent() {
-    Pageable top20 = PageRequest.of(0, 20);
-    List<EMISchedule> recentPaidEMIs = emiScheduleRepository.findTop20PaidWithCustomer(top20);
+		} catch (Exception e) {
+			log.error("❌ Error deleting customer: {}", e.getMessage(), e);
+			return ResponseEntity.status(500).body("Error deleting customer: " + e.getMessage());
+		}
+	}
 
-    Set<String> phoneNumbers = recentPaidEMIs.stream()
-        .map(EMISchedule::getCustomerPhone)
-        .collect(Collectors.toCollection(LinkedHashSet::new)); // Keep order, avoid duplicates
+	@GetMapping("/dashboard")
+	public DashboardStatsDTO getDashboardStats() {
+		return customerService.getDashboardStats();
+	}
 
-    List<RecentPayerResponse> responseList = new ArrayList<>();
+	@GetMapping("/customers")
+	public ResponseEntity<List<Customer>> findAllCustomers() {
+		try {
+			List<Customer> customer = customerService.findAll();
+			return new ResponseEntity<>(customer, HttpStatus.CREATED);
+		} catch (Exception ex) {
+			throw ex; // Let GlobalExceptionHandler handle it
+		}
+	}
 
-    for (String phone : phoneNumbers) {
-        Optional<Customer> optionalCustomer = customerRepository.findByPhoneNumber(phone);
-        if (optionalCustomer.isEmpty()) continue;
+	@GetMapping("/customers/recent-payers")
+	public ResponseEntity<List<RecentPayerResponse>> getRecent() {
+		Pageable top20 = PageRequest.of(0, 20);
+		List<EMISchedule> recentPaidEMIs = emiScheduleRepository.findTop20PaidWithCustomer(top20);
 
-        Customer customer = optionalCustomer.get();
-        List<EMISchedule> emiSchedules = emiScheduleRepository.findByCustomerPhoneOrderByMonth(phone);
+		Set<String> phoneNumbers = recentPaidEMIs.stream().map(EMISchedule::getCustomerPhone)
+				.collect(Collectors.toCollection(LinkedHashSet::new)); // Keep order, avoid duplicates
 
-        RecentPayerResponse response = new RecentPayerResponse();
-        response.setCustomer(customer);
-        response.setEmiSchedules(emiSchedules);
+		List<RecentPayerResponse> responseList = new ArrayList<>();
 
-        responseList.add(response);
-    }
+		for (String phone : phoneNumbers) {
+			Optional<Customer> optionalCustomer = customerRepository.findByPhoneNumber(phone);
+			if (optionalCustomer.isEmpty())
+				continue;
 
-    return ResponseEntity.ok(responseList);
+			Customer customer = optionalCustomer.get();
+			List<EMISchedule> emiSchedules = emiScheduleRepository.findByCustomerPhoneOrderByMonth(phone);
+
+			RecentPayerResponse response = new RecentPayerResponse();
+			response.setCustomer(customer);
+			response.setEmiSchedules(emiSchedules);
+
+			responseList.add(response);
+		}
+
+		return ResponseEntity.ok(responseList);
+	}
+
+	@GetMapping("/customers/{phoneNumber}/emi-schedule")
+	public ResponseEntity<List<EMIScheduleResponse>> getEMISchedule(@PathVariable String phoneNumber) {
+		try {
+			log.info("🔥 Fetching EMI schedule for customer: {}", phoneNumber);
+
+			List<EMIScheduleResponse> schedules = emiScheduleService.getEMIScheduleWithCumulative(phoneNumber);
+
+			log.info("✅ EMI schedule fetched successfully. Total months: {}", schedules.size());
+			return ResponseEntity.ok(schedules);
+
+		} catch (Exception e) {
+			log.error("❌ Error fetching EMI schedule: {}", e.getMessage(), e);
+			return ResponseEntity.status(500).body(null);
+		}
+	}
+
+	@PutMapping("/emi-schedule/{scheduleId}/status")
+	public ResponseEntity<String> updatePaymentStatus(@PathVariable Long scheduleId,
+			@RequestBody UpdateStatusRequest request) {
+		try {
+			log.info("🔥 Updating payment status for schedule ID: {}", scheduleId);
+
+			emiScheduleService.updatePaymentStatus(scheduleId, request.getStatus(), request.getPaidDate(),
+					request.getPaidAmount());
+
+			log.info("✅ Payment status updated successfully");
+			return ResponseEntity.ok("Status updated successfully");
+
+		} catch (Exception e) {
+			log.error("❌ Error updating payment status: {}", e.getMessage(), e);
+			return ResponseEntity.status(500).body("Error updating status: " + e.getMessage());
+		}
+	}
+
 }
-
-
-    
-    
-    
-    
-    @GetMapping("/customers/{phoneNumber}/emi-schedule")
-    public ResponseEntity<List<EMIScheduleResponse>> getEMISchedule(@PathVariable String phoneNumber) {
-        try {
-            log.info("🔥 Fetching EMI schedule for customer: {}", phoneNumber);
-            
-            List<EMIScheduleResponse> schedules = emiScheduleService.getEMIScheduleWithCumulative(phoneNumber);
-            
-            log.info("✅ EMI schedule fetched successfully. Total months: {}", schedules.size());
-            return ResponseEntity.ok(schedules);
-            
-        } catch (Exception e) {
-            log.error("❌ Error fetching EMI schedule: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(null);
-        }
-    }
-    
-    @PutMapping("/emi-schedule/{scheduleId}/status")
-    public ResponseEntity<String> updatePaymentStatus(
-            @PathVariable Long scheduleId, 
-            @RequestBody UpdateStatusRequest request) {
-        try {
-            log.info("🔥 Updating payment status for schedule ID: {}", scheduleId);
-            
-            emiScheduleService.updatePaymentStatus(
-                scheduleId, 
-                request.getStatus(), 
-                request.getPaidDate(),
-                request.getPaidAmount()
-            );
-            
-            log.info("✅ Payment status updated successfully");
-            return ResponseEntity.ok("Status updated successfully");
-            
-        } catch (Exception e) {
-            log.error("❌ Error updating payment status: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body("Error updating status: " + e.getMessage());
-        }
-    }
-    
-    
-    
-    
-    
-    
-   
-}
-

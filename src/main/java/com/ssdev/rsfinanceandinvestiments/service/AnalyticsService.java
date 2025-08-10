@@ -33,8 +33,8 @@ public class AnalyticsService {
     private static final Logger log = LoggerFactory.getLogger(AnalyticsService.class);
 
 
-//    Dashborad api - To get all responses 
-   public MonthlyAnalyticsResponse getMonthlyAnalytics(MonthCategory monthCategory, int year) {
+// Dashboard api - To get all responses (FIXED with proper waitlist query)
+public MonthlyAnalyticsResponse getMonthlyAnalytics(MonthCategory monthCategory, int year) {
     List<EMISchedule> filteredSchedules;
 
     // 1. Map enum to month number (null means special handling)
@@ -54,57 +54,146 @@ public class AnalyticsService {
         default -> null;  // For LAST_3_MONTHS, LAST_6_MONTHS, ALL
     };
 
+    log.info("🚀 ANALYTICS START: Month={}, Year={}, MonthNumber={}", monthCategory, year, monthNumber);
+
     // 2. Get filtered data
     if (monthNumber != null) {
-        // Use specific month and year
         filteredSchedules = emiScheduleRepository.findByMonthAndYear(monthNumber, year);
     } else {
         switch (monthCategory) {
             case LAST_3_MONTHS -> filteredSchedules = emiScheduleRepository.findInLastNMonths(LocalDate.now().minusMonths(3));
             case LAST_6_MONTHS -> filteredSchedules = emiScheduleRepository.findInLastNMonths(LocalDate.now().minusMonths(6));
-            case ALL -> filteredSchedules = emiScheduleRepository.findAll(); // or custom logic
+            case ALL -> filteredSchedules = emiScheduleRepository.findAll();
             default -> throw new IllegalArgumentException("Unsupported MonthCategory: " + monthCategory);
         }
     }
 
-    // 3. Extract customer phones
+    LocalDate today = LocalDate.now();
+    log.info("📅 DEBUG: Today's date: {}", today);
+    log.info("📊 DEBUG: Filtered schedules count: {}", filteredSchedules.size());
+
+    // Debug: Show some filtered schedule details
+    filteredSchedules.stream().limit(5).forEach(schedule -> 
+        log.info("  📋 Filtered Schedule: Phone={}, Month={}, DueDate={}, Status={}", 
+            schedule.getCustomerPhone(), schedule.getMonthName(), schedule.getDueDate(), schedule.getStatus())
+    );
+
+    // 3. Extract customer phones from filtered schedules
     Set<String> customerPhones = filteredSchedules.stream()
             .map(EMISchedule::getCustomerPhone)
             .collect(Collectors.toSet());
 
     int totalCustomers = customerPhones.size();
+    log.info("👥 DEBUG: Total customers in filtered period: {}", totalCustomers);
+    log.info("📞 DEBUG: Customer phones: {}", customerPhones);
 
+    // 4. Count paid customers
     int paidCustomers = (int) customerPhones.stream()
             .filter(phone -> filteredSchedules.stream()
                     .anyMatch(s -> s.getCustomerPhone().equals(phone) && s.getStatus() == PaymentStatus.PAID))
             .count();
 
-    int pendingCustomers = totalCustomers - paidCustomers;
+    log.info("💰 DEBUG: Paid customers count: {}", paidCustomers);
 
-    List<String> waitlistPhones = emiScheduleRepository.findWaitlistCustomers(LocalDate.now().minusMonths(3));
-    
+    // Debug: Show which customers are paid
+    customerPhones.stream().forEach(phone -> {
+        boolean hasPaid = filteredSchedules.stream()
+                .anyMatch(s -> s.getCustomerPhone().equals(phone) && s.getStatus() == PaymentStatus.PAID);
+        log.info("  💳 Customer {} has paid EMI in filtered period: {}", phone, hasPaid);
+    });
+
+    // 5. Get ALL schedules to properly calculate overdue EMIs
+    List<EMISchedule> allSchedules = emiScheduleRepository.findAll();
+    log.info("📊 DEBUG: Total ALL schedules count: {}", allSchedules.size());
+
+    // 6. FIXED: Get waitlist customers using today's date to count ALL overdue EMIs
+    List<String> waitlistPhones = emiScheduleRepository.findWaitlistCustomers(today);
+    log.info("⚠️ DEBUG: Waitlist phones from query (3+ overdue): {}", waitlistPhones);
+
+    // 7. Separate customers based on overdue EMIs
+    Set<String> allOverdueCustomers = allSchedules.stream()
+            .filter(s -> s.getStatus() != PaymentStatus.PAID && s.getDueDate().isBefore(today))
+            .map(EMISchedule::getCustomerPhone)
+            .filter(customerPhones::contains) // Only customers from filtered period
+            .collect(Collectors.toSet());
+
+    log.info("🔥 DEBUG: All overdue customers from filtered period: {}", allOverdueCustomers);
+
+    // Debug: Show overdue EMI count for each customer
+    for (String phone : customerPhones) {
+        List<EMISchedule> customerOverdueEMIs = allSchedules.stream()
+                .filter(s -> s.getCustomerPhone().equals(phone) 
+                        && s.getStatus() != PaymentStatus.PAID 
+                        && s.getDueDate().isBefore(today))
+                .toList();
+        
+        log.info("📱 DEBUG: Customer {} has {} overdue EMIs:", phone, customerOverdueEMIs.size());
+        customerOverdueEMIs.forEach(emi -> 
+            log.info("    📅 Overdue EMI: Month={}, DueDate={}, Amount={}", 
+                emi.getMonthName(), emi.getDueDate(), emi.getEmiAmount())
+        );
+    }
+
+    // Waitlist customers (from filtered customers who are in waitlist)
+    Set<String> waitlistCustomersInPeriod = allOverdueCustomers.stream()
+            .filter(waitlistPhones::contains)
+            .collect(Collectors.toSet());
+
+    // Pending customers (overdue but not in waitlist - means 1-2 overdue EMIs)
+    Set<String> pendingCustomersInPeriod = allOverdueCustomers.stream()
+            .filter(phone -> !waitlistPhones.contains(phone))
+            .collect(Collectors.toSet());
+
+    int pendingCustomers = pendingCustomersInPeriod.size();
+    int waitlistCustomersCount = waitlistCustomersInPeriod.size();
+
+    log.info("⏰ DEBUG: Pending customers (1-2 overdue EMIs): {} - {}", pendingCustomers, pendingCustomersInPeriod);
+    log.info("⚠️ DEBUG: Waitlist customers (3+ overdue EMIs): {} - {}", waitlistCustomersCount, waitlistCustomersInPeriod);
+
+    // 8. Amount calculations
     BigDecimal totalPaidAmount = filteredSchedules.stream()
             .filter(s -> s.getStatus() == PaymentStatus.PAID)
             .map(EMISchedule::getPaidAmount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-    BigDecimal totalUnpaidAmount = filteredSchedules.stream()
-            .filter(s -> s.getStatus() != PaymentStatus.PAID)
+    log.info("💵 DEBUG: Total paid amount from filtered schedules: {}", totalPaidAmount);
+
+    // Only overdue unpaid amount (from previous months)
+    BigDecimal totalUnpaidAmount = allSchedules.stream()
+            .filter(s -> s.getStatus() != PaymentStatus.PAID && s.getDueDate().isBefore(today))
+            .filter(s -> customerPhones.contains(s.getCustomerPhone()))
             .map(EMISchedule::getEmiAmount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+    log.info("🔴 DEBUG: Total unpaid amount (overdue only): {}", totalUnpaidAmount);
 
-    BigDecimal totalCollected = filteredSchedules.stream()
-            .filter(s -> s.getStatus() == PaymentStatus.PAID)
-            .map(EMISchedule::getPaidAmount)
+    // Debug: Break down unpaid amount by customer type
+    BigDecimal pendingUnpaidAmount = allSchedules.stream()
+            .filter(s -> s.getStatus() != PaymentStatus.PAID && s.getDueDate().isBefore(today))
+            .filter(s -> pendingCustomersInPeriod.contains(s.getCustomerPhone()))
+            .map(EMISchedule::getEmiAmount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    BigDecimal waitlistUnpaidAmount = allSchedules.stream()
+            .filter(s -> s.getStatus() != PaymentStatus.PAID && s.getDueDate().isBefore(today))
+            .filter(s -> waitlistCustomersInPeriod.contains(s.getCustomerPhone()))
+            .map(EMISchedule::getEmiAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    log.info("💰 DEBUG: Pending customers unpaid amount: {}", pendingUnpaidAmount);
+    log.info("⚠️ DEBUG: Waitlist customers unpaid amount: {}", waitlistUnpaidAmount);
+
+    BigDecimal totalCollected = totalPaidAmount;
 
     BigDecimal totalExpected = filteredSchedules.stream()
             .map(EMISchedule::getEmiAmount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-    // 4. Previous month comparison
-    LocalDate prevMonthDate = LocalDate.now().minusMonths(1);  // Default to previous month
+    log.info("🎯 DEBUG: Total expected amount: {}", totalExpected);
+    log.info("✅ DEBUG: Total collected amount: {}", totalCollected);
+
+    // 9. Previous month comparison
+    LocalDate prevMonthDate = LocalDate.now().minusMonths(1);
 
     if (monthNumber != null) {
         try {
@@ -114,6 +203,8 @@ public class AnalyticsService {
         }
     }
 
+    log.info("📅 DEBUG: Previous month date for comparison: {}", prevMonthDate);
+
     List<EMISchedule> prevSchedules = emiScheduleRepository.findByMonthAndYear(
             prevMonthDate.getMonthValue(), prevMonthDate.getYear());
 
@@ -122,7 +213,9 @@ public class AnalyticsService {
             .distinct()
             .count();
 
-    // === 5. Calculations ===
+    log.info("👥 DEBUG: Previous month customer count: {}", prevCustomerCount);
+
+    // === 10. Calculations ===
     double customerGrowthPercentage = prevCustomerCount == 0 ? 100.0 :
             ((totalCustomers - prevCustomerCount) * 100.0) / prevCustomerCount;
 
@@ -133,32 +226,40 @@ public class AnalyticsService {
             (pendingCustomers * 100.0) / totalCustomers;
 
     double waitlistPercentage = totalCustomers == 0 ? 0.0 :
-            (waitlistPhones.size() * 100.0) / totalCustomers;
+            (waitlistCustomersCount * 100.0) / totalCustomers;
 
     double collectionPercentage = totalExpected.compareTo(BigDecimal.ZERO) == 0 ? 0.0 :
             totalCollected.multiply(BigDecimal.valueOf(100))
                     .divide(totalExpected, 2, BigDecimal.ROUND_HALF_UP)
                     .doubleValue();
 
-    // === 6. Direction Logic ===
+    log.info("📊 DEBUG: Customer growth: {}%", customerGrowthPercentage);
+    log.info("💰 DEBUG: Paid percentage: {}%", paidPercentage);
+    log.info("⏰ DEBUG: Pending percentage: {}%", pendingPercentage);
+    log.info("⚠️ DEBUG: Waitlist percentage: {}%", waitlistPercentage);
+    log.info("💵 DEBUG: Collection percentage: {}%", collectionPercentage);
+
+    // === 11. Direction Logic ===
     String customerDirection = customerGrowthPercentage >= 0 ? "+" : "-";
     String paidDirection = paidPercentage >= 50 ? "+" : "-";
     String pendingDirection = pendingPercentage < 50 ? "+" : "-";
     String waitlistDirection = waitlistPercentage < 20 ? "+" : "-";
     String collectionDirection = collectionPercentage >= 80 ? "+" : "-";
 
-    // === 7. Build Response ===
+    log.info("🎯 DEBUG: Directions - Customer: {}, Paid: {}, Pending: {}, Waitlist: {}, Collection: {}", 
+            customerDirection, paidDirection, pendingDirection, waitlistDirection, collectionDirection);
+
+    // === 12. Build Response ===
     MonthlyAnalyticsResponse response = new MonthlyAnalyticsResponse();
     response.setMonth(monthCategory.name());
     response.setYear(year);
     response.setTotalCustomers(totalCustomers);
     response.setPaidCustomers(paidCustomers);
     response.setPendingCustomers(pendingCustomers);
-    response.setWaitlistCustomers(waitlistPhones.size());
+    response.setWaitlistCustomers(waitlistCustomersCount);
     response.setTotalCollectedAmount(totalCollected);
     response.setTotalPaidAmount(totalPaidAmount);
     response.setTotalUnpaidAmount(totalUnpaidAmount);
-
 
     // Set percentages
     response.setCustomerGrowthPercentage(customerGrowthPercentage);
@@ -174,8 +275,14 @@ public class AnalyticsService {
     response.setWaitlistDirection(waitlistDirection);
     response.setCollectionDirection(collectionDirection);
 
+    log.info("🎉 FINAL RESPONSE: Total={}, Paid={}, Pending={}, Waitlist={}, PaidAmt={}, UnpaidAmt={}", 
+            totalCustomers, paidCustomers, pendingCustomers, waitlistCustomersCount, 
+            totalPaidAmount, totalUnpaidAmount);
+
     return response;
 }
+
+
 
     
     
