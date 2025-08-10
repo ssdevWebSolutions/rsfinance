@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -68,41 +69,51 @@ public class EMIScheduleService {
 	}
 
 public void calculateCumulativePending(String customerPhone) {
-    List<EMISchedule> schedules =
-        emiScheduleRepository.findByCustomerPhoneOrderByMonth(customerPhone);
-
-    BigDecimal runningPending = BigDecimal.ZERO;
+    List<EMISchedule> schedules = emiScheduleRepository.findByCustomerPhoneOrderByMonth(customerPhone);
     LocalDate today = LocalDate.now();
+    BigDecimal runningPending = BigDecimal.ZERO;
 
-    boolean foundPaid = false;
+    int consecutiveUnpaid = 0;
+    List<EMISchedule> currentUnpaidChain = new ArrayList<>();
+
     for (EMISchedule schedule : schedules) {
         if (schedule.getStatus() != PaymentStatus.PAID) {
             runningPending = runningPending.add(schedule.getPendingAmount());
         }
-
         if (schedule.getDueDate().isAfter(today)) {
-            // Future EMI
             schedule.setStatus(PaymentStatus.PENDING);
-        } else if (schedule.getStatus() == PaymentStatus.PAID) {
+            schedule.setCumulativePending(runningPending);
+            emiScheduleRepository.save(schedule);
+            continue;
+        }
+        if (schedule.getStatus() == PaymentStatus.PAID) {
             schedule.setStatus(PaymentStatus.PAID);
-            foundPaid = true; // Found payment recent enough, reset window
+            consecutiveUnpaid = 0;
+            currentUnpaidChain.clear();
         } else {
-            long monthsUnpaid = ChronoUnit.MONTHS.between(
-                schedule.getDueDate().withDayOfMonth(1),
-                today.withDayOfMonth(1)
-            ) + 1;
+            consecutiveUnpaid++;
+            currentUnpaidChain.add(schedule);
 
-            if (monthsUnpaid >= 2 && !foundPaid) {
-                schedule.setStatus(PaymentStatus.OVERDUE);
-            } else {
-                schedule.setStatus(PaymentStatus.PENDING);
+            // Mark as pending for now, may fix to OVERDUE later
+            schedule.setStatus(PaymentStatus.PENDING);
+            schedule.setCumulativePending(runningPending);
+            emiScheduleRepository.save(schedule);
+        }
+    }
+
+    // If most recent unpaid chain up to today is >=3, those must ALL be overdue!
+    if (consecutiveUnpaid >= 3 && !currentUnpaidChain.isEmpty()) {
+        for (EMISchedule s : currentUnpaidChain) {
+            if (s.getStatus() != PaymentStatus.PAID) {
+                s.setStatus(PaymentStatus.OVERDUE);
+                emiScheduleRepository.save(s);
             }
         }
-
-        schedule.setCumulativePending(runningPending);
-        emiScheduleRepository.save(schedule);
     }
 }
+
+
+
 
 
 
@@ -224,7 +235,6 @@ public void calculateCumulativePending(String customerPhone) {
 		log.info("✅ Overdue EMI update completed. Updated {} EMIs", updatedCount);
 	}
 
-	// FIXED: Helper methods with 3-month rule
 
 	/**
 	 * FIXED: Update status based on 3-month rule instead of immediate overdue

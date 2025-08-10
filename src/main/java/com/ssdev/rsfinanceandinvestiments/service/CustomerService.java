@@ -150,17 +150,7 @@ public Customer updateCustomer(String phoneNumber, CustomerUpdateRequest request
         }
     }
 
-    // 🔥 NEW: CHECK IF CUSTOMER EXISTS
-//    public boolean existsByPhoneNumber(String phoneNumber) {
-//        try {
-//            boolean exists = customerRepository.existsByPhoneNumber(phoneNumber);
-//            log.info("🔍 Customer exists check for {}: {}", phoneNumber, exists);
-//            return exists;
-//        } catch (Exception e) {
-//            log.error("❌ Error checking customer existence: {}", e.getMessage(), e);
-//            throw new RuntimeException("Failed to check customer existence: " + e.getMessage());
-//        }
-//    }
+
 
     // 🔥 HELPER: Calculate EMI using formula
     private double calculateEMI(double principal, double annualRate, int tenureMonths) {
