@@ -82,5 +82,16 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
  	   @Query("SELECT e FROM EMISchedule e WHERE e.status != :status")
  	   List<EMISchedule> findByStatusNot(@Param("status") PaymentStatus status);
 
+ 	   
+ 	  @Query("SELECT COALESCE(SUM(e.paidAmount), 0) FROM EMISchedule e " +
+ 		       "WHERE e.paidDate BETWEEN :startDate AND :endDate")
+ 		BigDecimal getTotalPaidBetweenDates(@Param("startDate") LocalDate startDate,
+ 		                                    @Param("endDate") LocalDate endDate);
+
+ 		@Query("SELECT COALESCE(SUM(e.pendingAmount), 0) FROM EMISchedule e " +
+ 		       "WHERE e.dueDate BETWEEN :startDate AND :endDate")
+ 		BigDecimal getTotalPendingBetweenDates(@Param("startDate") LocalDate startDate,
+ 		                                       @Param("endDate") LocalDate endDate);
+
 
 }

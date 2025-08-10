@@ -67,33 +67,66 @@ public class EMIScheduleService {
 		log.info("✅ EMI schedule generated successfully for customer: {}", customer.getPhoneNumber());
 	}
 
+public void calculateCumulativePending(String customerPhone) {
+    List<EMISchedule> schedules =
+        emiScheduleRepository.findByCustomerPhoneOrderByMonth(customerPhone);
+
+    BigDecimal runningPending = BigDecimal.ZERO;
+    LocalDate today = LocalDate.now();
+
+    boolean foundPaid = false;
+    for (EMISchedule schedule : schedules) {
+        if (schedule.getStatus() != PaymentStatus.PAID) {
+            runningPending = runningPending.add(schedule.getPendingAmount());
+        }
+
+        if (schedule.getDueDate().isAfter(today)) {
+            // Future EMI
+            schedule.setStatus(PaymentStatus.PENDING);
+        } else if (schedule.getStatus() == PaymentStatus.PAID) {
+            schedule.setStatus(PaymentStatus.PAID);
+            foundPaid = true; // Found payment recent enough, reset window
+        } else {
+            long monthsUnpaid = ChronoUnit.MONTHS.between(
+                schedule.getDueDate().withDayOfMonth(1),
+                today.withDayOfMonth(1)
+            ) + 1;
+
+            if (monthsUnpaid >= 2 && !foundPaid) {
+                schedule.setStatus(PaymentStatus.OVERDUE);
+            } else {
+                schedule.setStatus(PaymentStatus.PENDING);
+            }
+        }
+
+        schedule.setCumulativePending(runningPending);
+        emiScheduleRepository.save(schedule);
+    }
+}
+
+
+
 	/**
-	 * 🔥 CORE LOGIC: Calculate cumulative pending amounts
+	 * Calculate EMI status based on due date and cascading rule (updated). This
+	 * method is now trivial; the cascading logic is handled in
+	 * calculateCumulativePending. You may adjust or keep it if needed elsewhere.
 	 */
-	public void calculateCumulativePending(String customerPhone) {
-		List<EMISchedule> schedules = emiScheduleRepository.findByCustomerPhoneOrderByMonth(customerPhone);
-		BigDecimal runningPending = BigDecimal.ZERO;
-
-		for (EMISchedule schedule : schedules) {
-			// Add current month's pending to running total
-			if (schedule.getStatus() != PaymentStatus.PAID) {
-				runningPending = runningPending.add(schedule.getPendingAmount());
-			}
-
-			// Set cumulative pending for this month
-			schedule.setCumulativePending(runningPending);
-
-			// FIXED: Update status based on 3-month rule
-			updateStatusBasedOnThreeMonthRule(schedule);
-
-			emiScheduleRepository.save(schedule);
-
-			log.debug("Month {}: EMI=₹{}, Pending=₹{}, Cumulative=₹{}, Status={}", schedule.getMonthNumber(),
-					schedule.getEmiAmount(), schedule.getPendingAmount(), schedule.getCumulativePending(),
-					schedule.getStatus());
+	public static PaymentStatus calculateEMIStatus(LocalDate dueDate, PaymentStatus currentStatus, LocalDate today) {
+		if (currentStatus == PaymentStatus.PAID) {
+			return PaymentStatus.PAID; // Keep paid status as is
 		}
 
-		log.info("✅ Cumulative pending calculation completed for customer: {}", customerPhone);
+		if (dueDate.isAfter(today)) {
+			return PaymentStatus.PENDING; // Future EMI
+		}
+
+		long monthsDifference = ChronoUnit.MONTHS.between(dueDate.withDayOfMonth(1), today.withDayOfMonth(1)) + 1;
+
+		if (monthsDifference >= 3) {
+			return PaymentStatus.OVERDUE;
+		} else {
+			return PaymentStatus.PENDING;
+		}
 	}
 
 	/**
@@ -204,28 +237,6 @@ public class EMIScheduleService {
 		LocalDate today = LocalDate.now();
 		PaymentStatus calculatedStatus = calculateEMIStatus(schedule.getDueDate(), schedule.getStatus(), today);
 		schedule.setStatus(calculatedStatus);
-	}
-
-	/**
-	 * CORE LOGIC: Calculate EMI status based on 3-month rule
-	 */
-	public static PaymentStatus calculateEMIStatus(LocalDate dueDate, PaymentStatus currentStatus, LocalDate today) {
-		if (currentStatus == PaymentStatus.PAID) {
-			return PaymentStatus.PAID; // Keep paid status
-		}
-
-		if (dueDate.isAfter(today)) {
-			return PaymentStatus.PENDING; // Future EMI
-		}
-
-		// Calculate months difference including current month
-		long monthsDifference = ChronoUnit.MONTHS.between(dueDate.withDayOfMonth(1), today.withDayOfMonth(1)) + 1;
-
-		if (monthsDifference >= 3) {
-			return PaymentStatus.OVERDUE; // 3+ months overdue
-		} else {
-			return PaymentStatus.PENDING; // 1-2 months due
-		}
 	}
 
 	private String getMonthName(LocalDate date) {

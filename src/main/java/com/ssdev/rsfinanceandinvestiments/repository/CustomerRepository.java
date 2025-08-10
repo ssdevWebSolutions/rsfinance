@@ -1,5 +1,6 @@
 package com.ssdev.rsfinanceandinvestiments.repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,8 @@ public interface CustomerRepository extends JpaRepository<Customer,Long> {
 	Optional<Customer> findByPhoneNumber(String phoneNumber);
 	
 	void deleteByPhoneNumber(String phoneNumber);
+
+	long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
 
 

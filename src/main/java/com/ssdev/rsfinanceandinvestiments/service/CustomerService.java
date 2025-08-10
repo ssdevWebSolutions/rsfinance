@@ -208,12 +208,35 @@ public Customer updateCustomer(String phoneNumber, CustomerUpdateRequest request
     
     
 
-    public DashboardStatsDTO getDashboardStats() {
+    public DashboardStatsDTO getDashboardStats(LocalDate startDate, LocalDate endDate) {
+        if (startDate != null && endDate != null) {
+            long totalCustomers = customerRepository.countByCreatedAtBetween(
+                startDate.atStartOfDay(), 
+                endDate.plusDays(1).atStartOfDay()
+            );
+
+            BigDecimal totalPaid = emiScheduleRepository.getTotalPaidBetweenDates(startDate, endDate);
+            BigDecimal totalPending = emiScheduleRepository.getTotalPendingBetweenDates(startDate, endDate);
+
+            return new DashboardStatsDTO(
+                totalCustomers,
+                totalPaid != null ? totalPaid : BigDecimal.ZERO,
+                totalPending != null ? totalPending : BigDecimal.ZERO
+            );
+        }
+
+        // 🔹 Default behavior — no filtering
         long totalCustomers = customerRepository.count();
         BigDecimal totalPaid = emiScheduleRepository.getTotalPaid();
         BigDecimal totalPending = emiScheduleRepository.getTotalPending();
 
-        return new DashboardStatsDTO(totalCustomers, totalPaid, totalPending);
+        return new DashboardStatsDTO(
+            totalCustomers,
+            totalPaid != null ? totalPaid : BigDecimal.ZERO,
+            totalPending != null ? totalPending : BigDecimal.ZERO
+        );
     }
+
+
 
 }

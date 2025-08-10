@@ -25,8 +25,10 @@ import com.ssdev.rsfinanceandinvestiments.service.CustomerService;
 import com.ssdev.rsfinanceandinvestiments.service.EMIScheduleService;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -130,9 +132,12 @@ public class CustomerController {
 	}
 
 	@GetMapping("/dashboard")
-	public DashboardStatsDTO getDashboardStats() {
-		return customerService.getDashboardStats();
+	public DashboardStatsDTO getDashboardStats(
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+	        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+	    return customerService.getDashboardStats(startDate, endDate);
 	}
+
 
 	@GetMapping("/customers")
 	public ResponseEntity<List<Customer>> findAllCustomers() {
