@@ -51,11 +51,7 @@ public class AuthController {
     public AuthResponse login(@RequestBody LoginRequest request) {
     	
     	
-    	LocalDate expiry = LocalDate.of(2025, 8, 14); 
-        
-        if (LocalDate.now().isAfter(expiry)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access expired. Please contact admin.");
-        }
+    	
     	
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
