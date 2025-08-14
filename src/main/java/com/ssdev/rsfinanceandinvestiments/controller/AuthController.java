@@ -10,6 +10,8 @@ import com.ssdev.rsfinanceandinvestiments.utility.JwtUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.time.LocalDate;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -46,6 +49,14 @@ public class AuthController {
 
     @PostMapping("/login")
     public AuthResponse login(@RequestBody LoginRequest request) {
+    	
+    	
+    	LocalDate expiry = LocalDate.of(2025, 8, 14); 
+        
+        if (LocalDate.now().isAfter(expiry)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access expired. Please contact admin.");
+        }
+    	
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
