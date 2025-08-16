@@ -149,33 +149,69 @@ public class CustomerController {
 		}
 	}
 
-	@GetMapping("/customers/recent-payers")
-	public ResponseEntity<List<RecentPayerResponse>> getRecent() {
-		Pageable top20 = PageRequest.of(0, 20);
-		List<EMISchedule> recentPaidEMIs = emiScheduleRepository.findTop20PaidWithCustomer(top20);
+//	@GetMapping("/customers/recent-payers")
+//	public ResponseEntity<List<RecentPayerResponse>> getRecent() {
+//		Pageable top20 = PageRequest.of(0, 20);
+//		List<EMISchedule> recentPaidEMIs = emiScheduleRepository.findTop20PaidWithCustomer(top20);
+//
+//		Set<String> phoneNumbers = recentPaidEMIs.stream().map(EMISchedule::getCustomerPhone)
+//				.collect(Collectors.toCollection(LinkedHashSet::new)); // Keep order, avoid duplicates
+//
+//		List<RecentPayerResponse> responseList = new ArrayList<>();
+//
+//		for (String phone : phoneNumbers) {
+//			Optional<Customer> optionalCustomer = customerRepository.findByPhoneNumber(phone);
+//			if (optionalCustomer.isEmpty())
+//				continue;
+//
+//			Customer customer = optionalCustomer.get();
+//			List<EMISchedule> emiSchedules = emiScheduleRepository.findByCustomerPhoneOrderByMonth(phone);
+//
+//			RecentPayerResponse response = new RecentPayerResponse();
+//			response.setCustomer(customer);
+//			response.setEmiSchedules(emiSchedules);
+//
+//			responseList.add(response);
+//		}
+//
+//		return ResponseEntity.ok(responseList);
+//	}
+	
+	@GetMapping("/customers/recent-payers")  // Changed endpoint name for clarity
+	public ResponseEntity<List<RecentPayerResponse>> getAllCustomers() {
+		List<EMISchedule> allUniqueEMIs = emiScheduleRepository.findAllUniqueCustomers();
+	    
+	    Set<String> phoneNumbers = allUniqueEMIs.stream()
+	        .map(EMISchedule::getCustomerPhone)
+	        .collect(Collectors.toCollection(LinkedHashSet::new));
+	    
+	    // This should now give you all 5 customers
+//	    System.out.println("All customers count: " + phoneNumbers.size()); // Should print 5
+	    
+	    System.out.println("customer reports lenght"+ phoneNumbers );
 
-		Set<String> phoneNumbers = recentPaidEMIs.stream().map(EMISchedule::getCustomerPhone)
-				.collect(Collectors.toCollection(LinkedHashSet::new)); // Keep order, avoid duplicates
+	    List<RecentPayerResponse> responseList = new ArrayList<>();
 
-		List<RecentPayerResponse> responseList = new ArrayList<>();
+	    for (String phone : phoneNumbers) {
+	        Optional<Customer> optionalCustomer = customerRepository.findByPhoneNumber(phone);
+	        if (optionalCustomer.isEmpty())
+	            continue;
 
-		for (String phone : phoneNumbers) {
-			Optional<Customer> optionalCustomer = customerRepository.findByPhoneNumber(phone);
-			if (optionalCustomer.isEmpty())
-				continue;
+	        Customer customer = optionalCustomer.get();
+	        
+	        // Get ALL EMI schedules for this customer (paid, pending, overdue)
+	        List<EMISchedule> emiSchedules = emiScheduleRepository.findByCustomerPhoneOrderByMonth(phone);
 
-			Customer customer = optionalCustomer.get();
-			List<EMISchedule> emiSchedules = emiScheduleRepository.findByCustomerPhoneOrderByMonth(phone);
+	        RecentPayerResponse response = new RecentPayerResponse();
+	        response.setCustomer(customer);
+	        response.setEmiSchedules(emiSchedules);
 
-			RecentPayerResponse response = new RecentPayerResponse();
-			response.setCustomer(customer);
-			response.setEmiSchedules(emiSchedules);
+	        responseList.add(response);
+	    }
 
-			responseList.add(response);
-		}
-
-		return ResponseEntity.ok(responseList);
+	    return ResponseEntity.ok(responseList);
 	}
+
 
 	@GetMapping("/customers/{phoneNumber}/emi-schedule")
 	public ResponseEntity<List<EMIScheduleResponse>> getEMISchedule(@PathVariable String phoneNumber) {

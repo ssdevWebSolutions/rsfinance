@@ -31,8 +31,19 @@ public interface EMIScheduleRepository extends JpaRepository<EMISchedule, Long> 
  BigDecimal getTotalPendingAmount(@Param("customerPhone") String customerPhone);
  
  
- @Query("SELECT e FROM EMISchedule e WHERE e.status = 'PAID' AND e.paidDate IS NOT NULL ORDER BY e.paidDate DESC")
+// @Query("SELECT e FROM EMISchedule e WHERE e.status = 'PAID' AND e.paidDate IS NOT NULL ORDER BY e.paidDate DESC")
+// List<EMISchedule> findTop20PaidWithCustomer(Pageable pageable);
+ 
+ @Query("SELECT e FROM EMISchedule e ORDER BY e.dueDate DESC")
  List<EMISchedule> findTop20PaidWithCustomer(Pageable pageable);
+
+// updated query for reports
+ @Query(value = "SELECT DISTINCT ON (customer_phone) * FROM emi_schedules ORDER BY customer_phone, due_date DESC", 
+	       nativeQuery = true)
+List<EMISchedule> findAllUniqueCustomers();
+
+
+
  
  @Query("SELECT e FROM EMISchedule e WHERE EXTRACT(MONTH FROM e.dueDate) = :month AND EXTRACT(YEAR FROM e.dueDate) = :year")
  List<EMISchedule> findByMonthAndYear(@Param("month") int month, @Param("year") int year);

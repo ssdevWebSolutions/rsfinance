@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -198,34 +199,98 @@ public Customer updateCustomer(String phoneNumber, CustomerUpdateRequest request
     
     
 
+//    public DashboardStatsDTO getDashboardStats(LocalDate startDate, LocalDate endDate) {
+//        if (startDate != null && endDate != null) {
+//            long totalCustomers = customerRepository.countByCreatedAtBetween(
+//                startDate.atStartOfDay(), 
+//                endDate.plusDays(1).atStartOfDay()
+//            );
+//
+//            BigDecimal totalPaid = emiScheduleRepository.getTotalPaidBetweenDates(startDate, endDate);
+//            BigDecimal totalPending = emiScheduleRepository.getTotalPendingBetweenDates(startDate, endDate);
+//
+//            return new DashboardStatsDTO(
+//                totalCustomers,
+//                totalPaid != null ? totalPaid : BigDecimal.ZERO,
+//                totalPending != null ? totalPending : BigDecimal.ZERO
+//            );
+//        }
+//
+//        // 🔹 Default behavior — no filtering
+//        long totalCustomers = customerRepository.count();
+//        BigDecimal totalPaid = emiScheduleRepository.getTotalPaid();
+//        BigDecimal totalPending = emiScheduleRepository.getTotalPending();
+//
+//        return new DashboardStatsDTO(
+//            totalCustomers,
+//            totalPaid != null ? totalPaid : BigDecimal.ZERO,
+//            totalPending != null ? totalPending : BigDecimal.ZERO
+//        );
+//    }
+    
     public DashboardStatsDTO getDashboardStats(LocalDate startDate, LocalDate endDate) {
+        System.out.println("🔹 DEBUG: getDashboardStats called");
+        System.out.println("🔹 DEBUG: startDate = " + startDate);
+        System.out.println("🔹 DEBUG: endDate = " + endDate);
+        
         if (startDate != null && endDate != null) {
-            long totalCustomers = customerRepository.countByCreatedAtBetween(
-                startDate.atStartOfDay(), 
-                endDate.plusDays(1).atStartOfDay()
-            );
-
+            System.out.println("🔹 DEBUG: Using date range filtering");
+            
+            // Debug customer count
+            LocalDateTime startDateTime = startDate.atStartOfDay();
+            LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+            System.out.println("🔹 DEBUG: Customer date range - Start: " + startDateTime + ", End: " + endDateTime);
+            
+            long totalCustomers = customerRepository.countCustomersWithEMIsInDateRange(startDate, endDate);
+            System.out.println("🔹 DEBUG: totalCustomers between dates = " + totalCustomers);
+            
+            // Debug total count for comparison
+            long allCustomersCount = customerRepository.count();
+            System.out.println("🔹 DEBUG: Total customers in database = " + allCustomersCount);
+            
+            // Debug EMI queries
+            System.out.println("🔹 DEBUG: EMI date range - Start: " + startDate + ", End: " + endDate);
+            
             BigDecimal totalPaid = emiScheduleRepository.getTotalPaidBetweenDates(startDate, endDate);
+            System.out.println("🔹 DEBUG: totalPaid between dates = " + totalPaid);
+            
             BigDecimal totalPending = emiScheduleRepository.getTotalPendingBetweenDates(startDate, endDate);
-
-            return new DashboardStatsDTO(
+            System.out.println("🔹 DEBUG: totalPending between dates = " + totalPending);
+            
+            
+            
+            DashboardStatsDTO result = new DashboardStatsDTO(
                 totalCustomers,
                 totalPaid != null ? totalPaid : BigDecimal.ZERO,
                 totalPending != null ? totalPending : BigDecimal.ZERO
             );
+            
+            System.out.println("🔹 DEBUG: Final result with date filter = " + result);
+            return result;
         }
 
-        // 🔹 Default behavior — no filtering
+        // Default behavior — no filtering
+        System.out.println("🔹 DEBUG: Using no date filtering (getting all data)");
+        
         long totalCustomers = customerRepository.count();
+        System.out.println("🔹 DEBUG: totalCustomers (all) = " + totalCustomers);
+        
         BigDecimal totalPaid = emiScheduleRepository.getTotalPaid();
+        System.out.println("🔹 DEBUG: totalPaid (all) = " + totalPaid);
+        
         BigDecimal totalPending = emiScheduleRepository.getTotalPending();
+        System.out.println("🔹 DEBUG: totalPending (all) = " + totalPending);
 
-        return new DashboardStatsDTO(
+        DashboardStatsDTO result = new DashboardStatsDTO(
             totalCustomers,
             totalPaid != null ? totalPaid : BigDecimal.ZERO,
             totalPending != null ? totalPending : BigDecimal.ZERO
         );
+        
+        System.out.println("🔹 DEBUG: Final result without date filter = " + result);
+        return result;
     }
+
 
 
 
